@@ -1,155 +1,151 @@
 clc
 clear all
 close all
-format compact 
-Number_of_analysis=1000;
-for iii=1:Number_of_analysis
-%% Initialisation and Intensity profiling
-I_background= 1000; %counts per event
-N_cells=1; %amount of systems we are investigating
-max_signal_to_noise_scale=20; %the highest intensity of an event
-N_S=5; %# intensity states for the event of N different cells
+format compact
+Number_of_analysis=1;
+%%% Initialisation and Intensity profiling
+N_channels = 1;
+I_background= 1000; %Hz
+max_signal_to_noise_scale=100; %the highest intensity of an event
 max_intensity= (max_signal_to_noise_scale)*I_background; %counts per event
-I_event= linspace(I_background*20,max_intensity,N_S); %currently I_event is kept constant at 20x snr
+I_event= I_background*max_signal_to_noise_scale; %currently I_event is kept constant at 20x snr
+N_S=7; %number of intensity states
+I_out= I_event*exp(-linspace(-1,1,N_S).^2/2);
 
-I_out_pdf=zeros(5,N_S+2);
-I_out_save=[];
-for i= 1:N_S
-        x=[I_event(i)-1,I_event(i)-(2/3),I_event(i)-(1/3),I_event(i),I_event(i)+1/3,I_event(i)+2/3,I_event(i)+1]; %define gaussian on -/+ 1 std
-        I_out_pdf(i,:)=normpdf(x,I_event(i));
-        I_out_save(i,:)= ((I_out_pdf(i,:)./I_out_pdf(i,4))*I_event(i)); %normalize intensities
-end
+Event_Rate = 5; % 5 events per second
+Duration = 2000; % duration in seconds
+burst_duration= 0.01; %s
+time_per_intensity = burst_duration/N_S;
+N_B=Duration*Event_Rate; %number of bursts
+ChangePoints=Event_Rate^(-1)*(0.5 + (0:N_B-1)); % evenly spaced timepoints of bursts in s
 
-Spikes_sort=[100,300,500,700,900]; %pick manual timepoints of bursts in ms
-ChangePoints=Spikes_sort./1000; %in seconds
-
-%% Photon arrival time computation
-% we simulate a fixed amount of time, based on a constant count rate
 time_res = 12.5*1E-9; % the time resolution of the system, here 12.5 nanosecond (80 MHz)
-cr_back = 1; % 1 kHz
-t=(ChangePoints)./time_res;
-t(end+1)=((I_background/1000))/time_res; %such that we can loop till last photon, it is the simulation end time
-t_event=ChangePoints./time_res;
-current_time = 0; % last photon arrival time
-burst_loop_time=0; % to loop over the burst times
-time_per_intensity=zeros(1,N_S);
-burst_duration=zeros(1,N_S);
-for i=1:numel(Spikes_sort)
-    burst_duration(i)=(100)/1000; %in seconds
-    time_per_intensity(i)=burst_duration(i)/(numel(x)); 
-end
-burst_duration(end+1)=0; %defined such that we can loop until the end of the simulation and not stop at last burst instantly 
-MT = [];
-MT_Burst=[];
-MT_Background=[];
-PhotonNumbers=[];
-MT_save = cell(N_cells,1); % the "macrotime", i.e. the photon arrival time measured with respect to the start of the measurement
-
-%draw the background photons
-while (current_time<t(end))
-    dt=round((exprnd(1/I_background))/time_res);
-    if dt<1
-        dt=1;
+t_event= round(ChangePoints./time_res);
+for iii=1:Number_of_analysis
+    %% Photon arrival time computation
+    % we simulate a fixed amount of time, based on a constant count rate
+    current_time = 0; % last photon arrival time
+    burst_loop_time=0; % to loop over the burst times
+    %time_per_intensity=zeros(1,N_S);
+    %burst_duration=zeros(1,N_S);
+    %for i=1:numel(Spikes_sort)
+    %   burst_duration(i)=(100)/1000; %in seconds
+    %    time_per_intensity(i)=burst_duration(i)/(numel(x));
+    %end
+    %burst_duration(end+1)=0; %defined such that we can loop until the end of the simulation and not stop at last burst instantly
+    MT = [];
+    MT_Burst=[];
+    MT_Background=[];
+    PhotonNumbers=[];
+    MT_save = cell(N_channels,1); % the "macrotime", i.e. the photon arrival time measured with respect to the start of the measurement
+    
+    disp('Simulating background.');
+    tic
+    %draw the background photons
+    MT_Background = cumsum(ceil((exprnd(1/I_background,1,Duration*I_background)/time_res)));
+    while (MT_Background(end)<Duration/time_res) % we did not yet reach the end
+        dt=ceil((exprnd(1/I_background))/time_res);
+        MT_Background(end+1)=MT_Background(end)+dt;
     end
-    current_time=current_time+dt;
-    MT_Background(end+1)=current_time;
-end
-
-%draw event photons
-dtsave=[];
-for i=1:numel(t_event)
-    current_time=t_event(i)-(burst_duration(i)/(2*time_res));
-    for n=1:numel(x)
-        burst_loop_time=0;
-        while burst_loop_time<time_per_intensity(i)/time_res
-            dt=round((exprnd(1/(I_out_save(i,n))))/time_res);
-            dtsave(end+1)=dt;
-            if dt<1
-                dt=1;
-            end
-            current_time=current_time+dt;
-            burst_loop_time=burst_loop_time+dt;
-            if current_time>t_event(i)-(burst_duration(i)/(2*time_res))+(((n)*time_per_intensity(i))/time_res) %if current time exceeds the intensity state time
-                current_time=round(t_event(i)-(burst_duration(i)/(2*time_res))+(((n)*time_per_intensity(i))/time_res)); %reset the clock
-                continue %go to the next loop without saving MT
-            end
-            MT_Burst(end+1) = current_time;
-            MT=sort([MT_Background,MT_Burst]);%sort MTs of events and background in right time order
-            for ii=1:numel(MT)-1 %if we are really unlucky a background photon and event photon are on the same timestamp, so add 1 time resolution step if this occurs
-                if MT(ii)==MT(ii+1)
-                    MT(ii+1)=MT(ii+1)+1;
+    toc
+    
+    %draw event photons
+    disp('Simulating events.');
+    dtsave=[];
+    tic
+    for i=1:numel(t_event)
+        current_time=t_event(i)-round(burst_duration/(2*time_res));
+        for n=1:N_S
+            burst_loop_time=0;
+            while burst_loop_time<time_per_intensity/time_res
+                dt=ceil((exprnd(1/(I_out(n))))/time_res);
+                dtsave(end+1)=dt;
+                if dt<1
+                    dt=1;
                 end
+                current_time=current_time+dt;
+                burst_loop_time=burst_loop_time+dt;
+                if current_time>t_event(i)-(burst_duration/(2*time_res))+(((n)*time_per_intensity)/time_res) %if current time exceeds the intensity state time
+                    current_time=round(t_event(i)-(burst_duration/(2*time_res))+(((n)*time_per_intensity)/time_res)); %reset the clock
+                    continue %go to the next loop without saving MT
+                end
+                MT_Burst(end+1) = current_time;                
             end
         end
     end
-end
-
-if MT(end)>t(end)
-    MT(end)=[];
-end %remove last photon such that every dataset ends in 1s
-MT_save{1,1}=MT'; %Right format for PAM
-
-%find the burst MT's
-for i=1:numel(MT)
-    for j=1:numel(t_event)
-        if MT(i)>=(((0.1+0.2*(j-1))-burst_duration(1)/2)/time_res) && MT(i)<=(((0.1+0.2*(j-1))+burst_duration(1)/2)/time_res)
-            PhotonNumbers(j,end+1)=find(MT(i)==MT);
-        end
+    toc
+    MT=sort([MT_Background,MT_Burst]);%sort MTs of events and background in right time order
+    %if we are really unlucky a background photon and event photon are on the same timestamp,remove one photon
+    MT(find(diff(MT) == 0) +1 ) = []; 
+   
+    %remove last photon such that every dataset ends in 1s
+    MT(MT>Duration/time_res)=[];
+    
+    MT_save{1,1}=MT'; %Right format for PAM
+    
+    disp('Finding ground truth burst starts and stops.');
+    tic
+    % find photons in burst regions
+    PhotonNumbers = cell(1,N_B);
+    for j = 1:N_B
+        PhotonNumbers{1,j} = find(abs(MT - t_event(j)) <= burst_duration/(2*time_res));             
     end
-end
-%save the photon arrival and end numbers of bursts structured
-for i=1:size(PhotonNumbers,1)
-    PhotonNumbersOut=[];
-    for j=1:size(PhotonNumbers,2)
-        if PhotonNumbers(i,j)~=0
-            PhotonNumbersOut(i,end+1)=PhotonNumbers(i,j);
-        end
-
+    toc
+    % truncate to the shortest macrotime
+    %MeasurementTime = min(cellfun(@max,MT_save));
+    %for i = 1:numel(MT_save)
+    %    MT_save{i} = MT_save{i}(MT_save{i} <= MeasurementTime);
+    %end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%% Below, additional data is defined %%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    % define "microtime" data (relates to the delay to the excitation pulse in
+    % experiments with pulsed lasers)
+    MI = cell(N_channels,1);
+    MI_Bins = 100;
+    for i = 1:N_channels
+        MI{i,1} = randi(MI_Bins,size(MT_save{i,1}));
     end
-    if size(PhotonNumbersOut,1)==0
-        PhotonNumbersOut(i,1)=0;
-    end
-    dict_PhotonNumbersOut100_0ms{1,i}=(PhotonNumbersOut(i,:));  %save this variable if you want to analyse burst search behaviour 
-end
-
-% truncate to the shortest macrotime
-MeasurementTime = min(cellfun(@max,MT_save));
-for i = 1:numel(MT_save)
-    MT_save{i} = MT_save{i}(MT_save{i} <= MeasurementTime);
-end
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% Below, additional data is defined %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% define "microtime" data (relates to the delay to the excitation pulse in
-% experiments with pulsed lasers)
-MI = cell(N_cells,1);
-MI_Bins = 100;
-for i = 1:N_cells
-    MI{i,1} = randi(MI_Bins,size(MT_save{i,1}));
-end
-MI=MI';
-%%% Minimal set of meta data
-Info = struct;
-Info.ClockPeriod = time_res;
-Info.SyncPeriod = time_res; % the macrotime period
-Info.TACRange = time_res; % the microtime range
-Info.MI_Bins = MI_Bins; % number of microtime bins
-Info.MeasurementTime = time_res*MeasurementTime;
-% some other meta data that relates to imaging (but is required)
-Info.Pixels = 1;
-Info.Lines = 1;
-Info.LineTimes = [];
-%% data save for PAM
-%%% save the data
-MT=MT_save;
-out_path='C:\Users\.....'; %put your location you want to save on here
-FileName=sprintf('DataSet_%d.ppf',iii);
-full_path=fullfile(out_path,FileName);
-save(full_path,'MT','MI','Info');
+    MI=MI';
+    %%% Minimal set of meta data
+    Info = struct;
+    Info.ClockPeriod = time_res;
+    Info.SyncPeriod = time_res; % the macrotime period
+    Info.TACRange = time_res; % the microtime range
+    Info.MI_Bins = MI_Bins; % number of microtime bins
+    MeasurementTime =  max(cellfun(@max,MT_save));
+    Info.MeasurementTime = time_res*MeasurementTime;
+    % some other meta data that relates to imaging (but is required)
+    Info.Pixels = 1;
+    Info.Lines = 1;
+    Info.LineTimes = [];
+    %% data save for PAM
+    %%% save the data
+    MT=MT_save;
+    out_path=''; %put your location you want to save on here
+    FileName=sprintf('DataSet_%d.ppf',iii);
+    full_path=fullfile(out_path,FileName);
+    save(full_path,'MT','MI','Info');
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %if you want to save the photon data as well run the save command below
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+save('PhotonBurstData.mat','PhotonNumbers')
 
-%save('PhotonBurstData.mat','dict_PhotonNumbersOut100_0ms')
+%% plot
+t = MT{1}; 
+figure('Position',[100,100,1200,350]);
+subplot(1,3,1); hold on;
+plot(t*time_res);
+xlabel('Photon number'); ylabel('Macrotime [s]');
+
+subplot(1,3,2); hold on;
+[h,time] = histcounts(t*time_res,0:1E-3:Duration);
+plot(time(1:end-1),h./min(diff(time))/1000);
+xlabel('Macrotime [s]'); ylabel('Count rate [kHz]');
+
+subplot(1,3,3); hold on;
+histogram(diff(t)*time_res*1E6);
+xlabel('Interphoton time [µs]'); ylabel('Frequency');
+set(gca,'YScale','log');
