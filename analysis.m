@@ -2,17 +2,17 @@ clear all
 addpath(genpath('.'));
 % load dataset
 global FileInfo
-load('DataSet_1.ppf','-mat');
+load('Sim_SigR0_Dur1_BG1_I20.ppf','-mat');
 % do burstsearch
 IB = 1;
 IT = 10;
-%[start,stop] = CUSUM_BurstSearch(MT{1,1},IB,IT,0.05);
-%[start,stop] = SlidingTimeWindow_BurstSearch(MT{1,1},5,500,true);
-[start,stop] = InterphotonTime_BurstSearch(MT{1,1},15,160);
-%[start,stop] = ChangePoint_BurstSearch(MT{1,1},10);
+[start,stop] = CUSUM_BurstSearch(MT,IB,IT,0.05);
+%[start,stop] = SlidingTimeWindow_BurstSearch(MT,5,500,true);
+%[start,stop] = InterphotonTime_BurstSearch(MT,15,160);
+%[start,stop] = ChangePoint_BurstSearch(MT,10);
 % load true start stops
-start_gt = cellfun(@(x) x(1),PhotonNumbers)';
-stop_gt = cellfun(@(x) x(end),PhotonNumbers)';
+start_gt = cellfun(@(x) x(1),BurstPhotonNumbers)';
+stop_gt = cellfun(@(x) x(end),BurstPhotonNumbers)';
 
 start_dt = zeros(size(start));
 stop_dt = zeros(size(start));
