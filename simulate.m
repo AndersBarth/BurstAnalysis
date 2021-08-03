@@ -5,7 +5,7 @@ addpath(genpath('.'));
 %   Simulate a total of 10000 bursts at 1 burst/second
 Duration = 10000;
 Event_Rate = 1;
-Time_Res = 12.5E-9; % default time resolution of 80 MHz
+Time_Res = 12.5; % ns, default time resolution of 80 MHz
 
 %%% Burst shape
 Burst_Duration = [0.1,1,10,100]; % in ms
