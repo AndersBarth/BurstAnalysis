@@ -25,12 +25,18 @@ if m>1
     dT_f = dT_m + (dT-dT_m).*dT_s./(dT_s+sig_0.^2);
 
     % threshold
-    valid = dT_f < T*1e-6/FileInfo.ClockPeriod;
+    valid = dT_f < T*1e-6/FileInfo.ClockPeriod & dT_f > 0;
 
-elseif M == 1
+elseif m == 1
     % threshold
     valid = [Photons(1); diff(Photons)] < T*1e-6/FileInfo.ClockPeriod;
 end
 % and find start and stop of bursts
 start = find(valid(1:end-1)-valid(2:end)==-1);
 stop = find(valid(1:end-1)-valid(2:end)==1);
+
+if numel(start) < numel(stop)
+    stop(1) = [];
+elseif numel(start) > numel(stop)
+    start(end) = [];
+end

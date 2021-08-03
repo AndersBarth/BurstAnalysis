@@ -4,8 +4,11 @@
 %%% emission bursts from diffusing single chromophores.                %%%%
 %%% J Phys Chem B 109, 21930-21937 (2005).                             %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [START,STOP] = CUSUM_BurstSearch(Photons,IB,IT)
+function [START,STOP] = CUSUM_BurstSearch(Photons,IB,IT,alpha)
 global FileInfo
+if nargin < 4
+    alpha = 1/numel(Photons); % default error rate
+end
 START = [];
 STOP = [];
 % convert photons to delay times
@@ -24,7 +27,7 @@ IT = IT*1E3*FileInfo.ClockPeriod; % threshold intensity
 % IT = I0*exp(-2)+IB; % threshold intensity at 1/e^2
 
 % error rates
-alpha = 1/numel(Photons);
+% alpha = 1/numel(Photons);
 beta = 0.05;
 % calculate the expectation value of the log likelihood ratio
 x = 0:1:max([max(dt), ceil(-log(1E-3)/IB)]);

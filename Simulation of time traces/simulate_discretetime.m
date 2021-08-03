@@ -64,51 +64,34 @@ end
 Time_ChangePoints_res = round(Time_ChangePoints/time_res); % round so we can use it as array indices
 
 disp('Simulating photons...');
-tic
-chunksize = 1E8;
-N_chunks = ceil(N./chunksize);
-MT = cell(N_chunks,1);
-for c = 1:N_chunks
-    if c == N_chunks % last bin, go up to end
-        from_to = [(c-1)*chunksize+1,N];
-    else
-        from_to = [(c-1)*chunksize+1,c*chunksize];
+%tic
+cr = zeros(N,1); % initialize array
+for i = 1:size(Time_ChangePoints_res,1)
+    for j = 1:N_S
+        cr(Time_ChangePoints_res(i,j):Time_ChangePoints_res(i,j+1)) = I_out_save(j);
     end
-    cr = zeros(from_to(2)-from_to(1)+1,1); % initialize array
-    valid = Time_ChangePoints_res(:,1) >= from_to(1) & Time_ChangePoints_res(:,1) <= from_to(2);
-    cp_temp = Time_ChangePoints_res(valid,:) - from_to(1);
-    for i = 1:size(cp_temp,1)
-        for j = 1:N_S
-            cr(cp_temp(i,j):cp_temp(i,j+1)) = I_out_save(j);
-        end
-    end
-    cr = cr + I_background;%%% add background
-    p = time_res*cr; % probability to see a photon at any time point
-    MT{c} = find(binornd(1,p)) + from_to(1); % generate random numbers and find non-zero time points
-    if c > 1
-       fprintf(repmat('\b',1,ll));
-    end
-    ll = fprintf('%i %%\n',round(c/N_chunks*100));
 end
-MT = vertcat(MT{:});
-toc
+cr = cr + I_background;%%% add background
+p = time_res*cr; % probability to see a photon at any time point
+MT = find(binornd(1,p)); % generate random numbers and find non-zero time points
+%toc
 
 disp('Finding ground truth burst starts and stops.');
-tic
+%tic
 % find photons in burst regions
 BurstPhotonNumbers = cell(1,N_B);
 Time_event_res = round(Time_Event./time_res);
 for j = 1:N_B
     BurstPhotonNumbers{1,j} = find(abs(MT - Time_event_res(j)) <= BurstDuration/(2*time_res));             
 end
-toc
+%toc
 
 %%% Minimal set of meta data
 FileInfo = struct;
 FileInfo.ClockPeriod = time_res;
 FileInfo.SyncPeriod = time_res; % the macrotime period
 FileInfo.TACRange = time_res; % the microtime range
-FileInfo.MeasurementTime = Duration;
+FileInfo.MeasurementTime = time_res*max(MT);
 %%% store simulation input parameters
 FileInfo.I_background= I_background; %Hz
 FileInfo.I_event = I_event; %the highest intensity of an event
