@@ -1,14 +1,12 @@
 clear all
 addpath(genpath('.'));
 % load dataset
-load('DataSet_1.ppf','-mat');
 global FileInfo
-FileInfo = Info;
-Photons = MT{1,1};
+load('Sim_SigR0_Dur1_BG1_I20.ppf','-mat');
+Photons = MT;
 % determine ground truth
-load('PhotonBurstData.mat');
-start_gt = cellfun(@(x) x(1),PhotonNumbers)';
-stop_gt = cellfun(@(x) x(end),PhotonNumbers)';
+start_gt = cellfun(@(x) x(1),BurstPhotonNumbers)';
+stop_gt = cellfun(@(x) x(end),BurstPhotonNumbers)';
 
 % do burstsearch
 % scan over threshold and false positive percentage
@@ -21,7 +19,7 @@ dt_LB = zeros(size(M));
 N_bursts = zeros(size(M));
 for i = 1:size(M,1)
     for j = 1:size(M,2)
-        [start,stop] = SlidingTimeWindow_BurstSearch(Photons,M(i,j),T(i,j),true);
+        [start,stop] = SlidingTimeWindow_BurstSearch(Photons,M(i,j),T(i,j),false);
         %[start,stop] = SlidingTimeWindow_BurstSearch(MT{1,1},5,1000,true);
         %[start,stop] = InterphotonTime_BurstSearch(MT{1,1},1,260);
         %[start,stop] = ChangePoint_BurstSearch(MT{1,1},10);

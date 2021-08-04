@@ -58,8 +58,8 @@ t_event = round(ChangePoints./time_res);
 %%% Photon arrival time computation
 % we simulate a fixed amount of time, based on a constant count rate
 
-disp('Simulating background.');
-tic
+%disp('Simulating background.');
+%tic
 %draw the background photons
 MT_Background = [];
 if I_background > 0
@@ -69,11 +69,11 @@ if I_background > 0
         MT_Background(end+1)=MT_Background(end)+dt;
     end
 end
-toc
+%toc
 
 %draw event photons
-disp('Simulating events.');
-ll = fprintf('0 %%');
+%disp('Simulating events.');
+%ll = fprintf('0 %%');
 MT_Burst = zeros(1E6,1);
 photon_index = 1;
 % current_time  -   running variable to store the ablsoute time of the last
@@ -102,10 +102,10 @@ for i=1:numel(t_event)
             photon_index = photon_index +1;
         end
     end
-    if mod(i,1000) == 0
-        fprintf(repmat('\b',1,ll));
-        ll = fprintf('%i %%\n',round(100*i/numel(t_event)));
-    end
+    % if mod(i,1000) == 0
+    %   fprintf(repmat('\b',1,ll));
+    %   ll = fprintf('%i %%\n',round(100*i/numel(t_event)));
+    % end
 end
 
 %toc
@@ -117,14 +117,14 @@ MT(find(diff(MT) == 0) +1 ) = [];
 %remove photons exceeding the set duration
 MT(MT>Duration/time_res)=[];
 
-disp('Finding ground truth burst starts and stops.');
-tic
+%disp('Finding ground truth burst starts and stops.');
+%tic
 % find photons in burst regions
 BurstPhotonNumbers = cell(1,N_B);
-parfor j = 1:N_B
+for j = 1:N_B
    BurstPhotonNumbers{1,j} = find(abs(MT - t_event(j)) <= BurstDuration/(2*time_res));             
 end
-toc
+%toc
 
 %%% Minimal set of meta data
 FileInfo = struct;

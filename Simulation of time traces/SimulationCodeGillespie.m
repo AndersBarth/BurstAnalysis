@@ -135,19 +135,19 @@ end
 %% plot
 show_plot = true;
 if show_plot
-    t = MT{1}; time_res = 12.5E-9;
+    time_res = 12.5E-9;
     figure('Position',[100,100,1200,350]);
     subplot(1,3,1); hold on;
-    plot(t*time_res);
+    plot(MT*time_res);
     xlabel('Photon number'); ylabel('Macrotime [s]');
 
     subplot(1,3,2); hold on;
-    [h,time] = histcounts(t*time_res,0:1E-3:t(end)*time_res);
+    [h,time] = histcounts(MT*time_res,0:1E-3:MT(end)*time_res);
     plot(time(1:end-1),h./min(diff(time))/1000);
     xlabel('Macrotime [s]'); ylabel('Count rate [kHz]');
 
     subplot(1,3,3); hold on;
-    histogram(diff(t)*time_res*1E6);
+    histogram(diff(MT)*time_res*1E6);
     xlabel('Interphoton time [µs]'); ylabel('Frequency');
     set(gca,'YScale','log');
 end
