@@ -1,6 +1,6 @@
 temp/*
+Simulations/*
 .DS_Store
 *.m~
-*.asv
 *.mat
-Simulations/*
+*.asv
