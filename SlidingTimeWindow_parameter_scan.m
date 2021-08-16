@@ -27,7 +27,7 @@ N_split_total = zeros(size(M)); % splitting frequency
 P_total = 0; % total number of ground-truth positives (i.e. bursts)
 
 files = dir([foldername filesep '*.ppf']);
-files = files(1); % for testing, only take one file
+%files = files(1); % for testing, only take one file
 fprintf('Analyzing %i files in current folder...\n',numel(files));
 ll = fprintf('0 %%');
 for f = 1:numel(files)
