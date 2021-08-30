@@ -4,10 +4,12 @@
 %%% emission bursts from diffusing single chromophores.                %%%%
 %%% J Phys Chem B 109, 21930-21937 (2005).                             %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [START,STOP] = CUSUM_BurstSearch(Photons,IB,IT,alpha)
-global FileInfo
-if nargin < 4
+function [START,STOP] = CUSUM_BurstSearch(Photons,IB,IT,time_res,alpha)
+if nargin < 5
     alpha = 1/numel(Photons); % default error rate
+end
+if IB == 0
+    IB = 0.01;
 end
 START = [];
 STOP = [];
@@ -19,8 +21,8 @@ if any(mod(dt,1)~=0)
 end
 % parameters (all count rates are given in kHz and need to be converted to
 % the used clock period)
-IB = IB*1E3*FileInfo.ClockPeriod; % background count rate per clock period
-IT = IT*1E3*FileInfo.ClockPeriod; % threshold intensity
+IB = IB*1E3*time_res; % background count rate per clock period
+IT = IT*1E3*time_res; % threshold intensity
 % alternative parameterization based on molecular brightness to determine
 % the threshold
 % I0 = I0*1E3*FileInfo.ClockPeriod; % intensity of molecule at the center of PSF (molecular brightness)
@@ -66,6 +68,10 @@ while start_next < numel(dt) % we have not reached the end
                 stop = start + 10;
                 start_next = stop; % to trigger exit condition
             end
+        else % sometimes, the algorithm gets stuck
+            % move on
+            stop = start + 10;
+            start_next = stop; % to trigger exit condition
         end
     else % sometimes, the algorithm gets stuck
         % move on

@@ -1,33 +1,29 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% For the CUSUM, the interesting parameter seems to be the error rate %%%
-%%% alpha. By default, it is set to 1/Nphotons, but the resulting low   %%%
-%%% rate causes a high detection delay.                                 %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function CUSUM_parameter_scan(foldername,L)
+function InterphotonTime_parameter_scan(foldername,L)
 % L - Minimum number of photons per burst
 if nargin < 2
     L = 5;
 end
 time_res = 12.5E-9;% scan over threshold and false positive percentage
-IT_range = 0.1:0.1:1;
-alpha_range = logspace(-9,-0.05,25);
-[IT,alpha] = meshgrid(IT_range,alpha_range);
+M_range = 2:1:25;
+T_range = 100:100:2000;
+[M,T] = meshgrid(M_range,T_range);
+T_time_res = T*1e-6/time_res;
 
 % initialize averaged variables over all files
-N_P_total = zeros(size(IT)); % number of detected bursts with at least L photons
-dt_total = zeros(size(IT)); % mean photon deviation of start/stop
-dt_start_total = zeros(size(IT)); % mean photon deviation of start
-dt_stop_total = zeros(size(IT)); % mean photon deviation of stop
-dt_start_array = cell(size(IT)); % array of all photon deviations of starts
-dt_stop_array = cell(size(IT)); % array of all photon deviations of stops
-dt_time_total = zeros(size(IT)); % mean time deviation of start/stop
-dt_time_start_total = zeros(size(IT)); % mean time deviation of start
-dt_time_stop_total = zeros(size(IT)); % mean time deviation of stop
-dt_time_start_array = cell(size(IT)); % array of all time deviations of starts
-dt_time_stop_array = cell(size(IT)); % array of all time deviations of stops
-N_FP_total = zeros(size(IT)); % false positives
-N_TP_total = zeros(size(IT)); % true positives
-N_split_total = zeros(size(IT)); % splitting frequency
+N_P_total = zeros(size(M)); % number of detected bursts with at least L photons
+dt_total = zeros(size(M)); % mean photon deviation of start/stop
+dt_start_total = zeros(size(M)); % mean photon deviation of start
+dt_stop_total = zeros(size(M)); % mean photon deviation of stop
+dt_start_array = cell(size(M)); % array of all photon deviations of starts
+dt_stop_array = cell(size(M)); % array of all photon deviations of stops
+dt_time_total = zeros(size(M)); % mean time deviation of start/stop
+dt_time_start_total = zeros(size(M)); % mean time deviation of start
+dt_time_stop_total = zeros(size(M)); % mean time deviation of stop
+dt_time_start_array = cell(size(M)); % array of all time deviations of starts
+dt_time_stop_array = cell(size(M)); % array of all time deviations of stops
+N_FP_total = zeros(size(M)); % false positives
+N_TP_total = zeros(size(M)); % true positives
+N_split_total = zeros(size(M)); % splitting frequency
 P_total = 0; % total number of ground-truth positives (i.e. bursts)
 
 files = dir([foldername filesep '*.ppf']);
@@ -37,11 +33,6 @@ ll = fprintf('0 %%');
 for f = 1:numel(files)
     % load dataset
     load(fullfile(files(f).folder,files(f).name),'-mat');
-    if FileInfo.I_background == 0
-        disp('Skipping file with zero background for CUSUM algorithm.');
-        return;
-    end
-    
     % filter empty bursts (true bursts that did not contain any photons)
     BurstPhotonNumbers = BurstPhotonNumbers(cellfun(@(x) ~isempty(x),BurstPhotonNumbers));
     % determine ground truth
@@ -50,21 +41,20 @@ for f = 1:numel(files)
     N_photons_gt = stop_gt - start_gt + 1;
 
     % do burstsearch
-    dt = zeros(size(IT));
-    dt_start = zeros(size(IT));
-    dt_stop = zeros(size(IT));
-    dt_time = zeros(size(IT));
-    dt_start_time = zeros(size(IT));
-    dt_stop_time = zeros(size(IT));
+    dt = zeros(size(M));
+    dt_start = zeros(size(M));
+    dt_stop = zeros(size(M));
+    dt_time = zeros(size(M));
+    dt_start_time = zeros(size(M));
+    dt_stop_time = zeros(size(M));
     
-    N_FP = zeros(size(IT));
-    N_P = zeros(size(IT));
-    N_TP = zeros(size(IT));
-    N_split = zeros(size(IT));
-    for i = 1:size(IT,1)
-        for j = 1:size(IT,2)
-            [start,stop] = CUSUM_BurstSearch(MT,FileInfo.I_background/1000,...
-                IT(i,j)*FileInfo.I_event/1000,time_res,alpha(i,j));
+    N_FP = zeros(size(M));
+    N_P = zeros(size(M));
+    N_TP = zeros(size(M));
+    N_split = zeros(size(M));
+    for i = 1:size(M,1)
+        for j = 1:size(M,2)
+            [start,stop] = SlidingTimeWindow_BurstSearch(MT,M(i,j),T_time_res(i,j),true);
             %[start,stop] = SlidingTimeWindow_BurstSearch(MT{1,1},5,1000,true);
             %[start,stop] = InterphotonTime_BurstSearch(MT{1,1},1,260);
             %[start,stop] = ChangePoint_BurstSearch(MT{1,1},10);
@@ -140,7 +130,7 @@ for f = 1:numel(files)
             N_TP(i,j) = sum(n_per_burst > 0);
             N_split(i,j) = sum(n_per_burst); % number of bursts within true positive regions
         end
-        %disp(i*size(IT,2)/numel(IT));
+        %disp(i*size(M,2)/numel(M));
     end
 
     % Quantities related to the sensitivity and specificity
@@ -201,201 +191,199 @@ TPR = N_TP_total./P_total;
 % false discovery rate
 FDR = N_FP_total./(N_FP_total+N_TP_total);
 
-save([foldername filesep files(1).name(1:end-6) '_CUSUM_result.mat'],...
+save([foldername filesep files(1).name(1:end-6) '_STW_result.mat'],...
     'dt','dt_start','dt_stop','dt_start_array','dt_stop_array',...
     'dt_time','dt_time_start','dt_time_stop','dt_time_start_array','dt_time_stop_array',...
-    'N_split','N_P','P','TPR','FDR','IT','alpha','time_res','L');
+    'N_split','N_P','P','TPR','FDR','M','T','time_res','L');
 %% plot and save figure
 lw = 1;
 fs = 8;
-IT_range = IT(1,:);
-alpha = log10(alpha);
-alpha_range = alpha(:,1);
-
+M_range = M(1,:);
+T_range = T(:,1);
 figure('Color',[1,1,1],'Units','inch','Position',[0,0,16,5]); hold on;
 tiledlayout(2,5);
 
 nexttile; hold on; colormap('vik');
-imagesc(IT(1,:),alpha(:,1),dt_start,'AlphaData',N_P>0);
-%contour(IT,alpha,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
-set(gca,'CLim',[-10,10],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('rel. intensity threshold');
-ylabel('input false positive rate, log \alpha');
+imagesc(M(1,:),T(:,1),dt_start,'AlphaData',N_P>0);
+%contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
+set(gca,'CLim',[-5,5],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
+xlabel('photons per time window, M');
+ylabel('time window (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
 %plot(M_range,1E6*M_range/20000,'--');
 dt_start(N_P == 0) = Inf;
 [~,ix] = min(abs(dt_start),[],1,'linear');
-plot(IT(ix),alpha(ix),'.k');
-%plot(M_range,M_range*mean(alpha(ix)./IT(ix)),'--','LineWidth',lw);
-%title(sprintf('Optimal threshold: %.2f kHz',mean(IT(ix)./alpha(ix))*1E3));
+plot(M(ix),T(ix),'.k');
+%plot(M_range,M_range*mean(T(ix)./M(ix)),'--','LineWidth',lw);
+%title(sprintf('Optimal threshold: %.2f kHz',mean(M(ix)./T(ix))*1E3));
 c = colorbar;
 c.Label.String = 'photon deviation of start';
 title('photon deviation of start');
-xlim([IT_range(1),IT_range(end)]); ylim([alpha_range(1),alpha_range(end)]);
+xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 ax = gca;
 text(ax.XLim(2)*0.775,ax.YLim(2)*0.95,sprintf('L = %i',L),'Color','y','FontWeight','bold');
 
 nexttile; hold on;
-imagesc(IT(1,:),alpha(:,1),dt_stop,'AlphaData',N_P>0);
-%contour(IT,alpha,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
-set(gca,'CLim',[-5,5],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('rel. intensity threshold');
-ylabel('input false positive rate, log \alpha');
+imagesc(M(1,:),T(:,1),dt_stop,'AlphaData',N_P>0);
+%contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
+set(gca,'CLim',[-5,5],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
+xlabel('photons per time window, M');
+ylabel('time window (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
 %plot(M_range,1E6*M_range/20000,'--');
 dt_stop(N_P == 0) = Inf;
 [~,ix] = min(abs(dt_stop),[],1,'linear');
-plot(IT(ix),alpha(ix),'.k');
-%plot(M_range,M_range*mean(alpha(ix)./IT(ix)),'--','LineWidth',lw);
-%title(sprintf('Optimal threshold: %.2f kHz',mean(IT(ix)./alpha(ix))*1E3));
+plot(M(ix),T(ix),'.k');
+%plot(M_range,M_range*mean(T(ix)./M(ix)),'--','LineWidth',lw);
+%title(sprintf('Optimal threshold: %.2f kHz',mean(M(ix)./T(ix))*1E3));
 c = colorbar;
 c.Label.String = 'photon deviation of stop';
 title('photon deviation of stop');
-xlim([IT_range(1),IT_range(end)]); ylim([alpha_range(1),alpha_range(end)]);
+xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 
 nexttile; hold on;
-imagesc(IT(1,:),alpha(:,1),dt,'AlphaData',N_P>0);
-%contour(IT,alpha,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
-set(gca,'CLim',[0,5],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('rel. intensity threshold');
-ylabel('input false positive rate, log \alpha');
+imagesc(M(1,:),T(:,1),dt,'AlphaData',N_P>0);
+%contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
+set(gca,'CLim',[0,5],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
+xlabel('photons per time window, M');
+ylabel('time window (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
 %plot(M_range,1E6*M_range/20000,'--');
 dt(N_P == 0) = Inf;
 [~,ix] = min(abs(dt),[],1,'linear');
-plot(IT(ix),alpha(ix),'.w');
-%plot(M_range,M_range*mean(alpha(ix)./IT(ix)),'--','LineWidth',lw);
-%title(sprintf('Optimal threshold: %.2f kHz',mean(IT(ix)./alpha(ix))*1E3));
+plot(M(ix),T(ix),'.w');
+%plot(M_range,M_range*mean(T(ix)./M(ix)),'--','LineWidth',lw);
+%title(sprintf('Optimal threshold: %.2f kHz',mean(M(ix)./T(ix))*1E3));
 c = colorbar;
-c.Label.String = 'RMSD photon deviation';
+c.Label.String = 'absolute photon deviation';
 title('RMSD photon deviation');
-xlim([IT_range(1),IT_range(end)]); ylim([alpha_range(1),alpha_range(end)]);
+xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 
 nexttile; hold on;
-imagesc(IT(1,:),alpha(:,1),TPR,'AlphaData',~isnan(TPR) & N_P>0);
-%contour(IT,alpha,TPR,'LevelList',1,'EdgeColor','y','LineWidth',lw);
+imagesc(M(1,:),T(:,1),TPR,'AlphaData',~isnan(TPR) & N_P>0);
+%contour(M,T,TPR,'LevelList',1,'EdgeColor','y','LineWidth',lw);
 set(gca,'CLim',[0,1],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
 c = colorbar;
 c.Label.String = 'true positive rate';
-xlabel('rel. intensity threshold');
-ylabel('input false positive rate, log \alpha');
+xlabel('photons per time window, M');
+ylabel('time window (\mus)');
 title('true positive rate');
 %ax = gca;
 %text(ax.XLim(2)*0.775,ax.YLim(2)*0.95,sprintf('L = %i',L),'Color','w','FontWeight','bold');
-xlim([IT_range(1),IT_range(end)]); ylim([alpha_range(1),alpha_range(end)]);
+xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 
 nexttile; hold on;
-imagesc(IT(1,:),alpha(:,1),N_P,'AlphaData',N_P>0);
-contour(IT,alpha,N_P,'LevelList',P,'EdgeColor','y','LineWidth',lw);
+imagesc(M(1,:),T(:,1),N_P,'AlphaData',N_P>0);
+contour(M,T,N_P,'LevelList',P,'EdgeColor','y','LineWidth',lw);
 set(gca,'CLim',[0,ceil(2.5*P/500)*500],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
 c = colorbar;
 c.Label.String = 'number of bursts';
-xlabel('rel. intensity threshold');
-ylabel('input false positive rate, log \alpha');
+xlabel('photons per time window, M');
+ylabel('time window (\mus)');
 title('number of detected bursts');
-xlim([IT_range(1),IT_range(end)]); ylim([alpha_range(1),alpha_range(end)]);
+xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 ax = gca;
 text(ax.XLim(2)*0.525,ax.YLim(2)*0.95,sprintf('N_{true} = %i',round(P)),'Color','y','FontWeight','bold');
 
 nexttile; hold on;
-imagesc(IT(1,:),alpha(:,1),dt_time_start*time_res*1E3,'AlphaData',N_P>0);
-%contour(IT,alpha,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
-set(gca,'CLim',[-2,2],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('rel. intensity threshold');
-ylabel('input false positive rate, log \alpha');
+imagesc(M(1,:),T(:,1),dt_time_start*time_res*1E3,'AlphaData',N_P>0);
+%contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
+set(gca,'CLim',[-2,2],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
+xlabel('photons per time window, M');
+ylabel('time window (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
 %plot(M_range,1E6*M_range/20000,'--');
 dt_time_start(N_P == 0) = Inf;
 [~,ix] = min(abs(dt_time_start),[],1,'linear');
-plot(IT(ix),alpha(ix),'.k');
-%plot(M_range,M_range*mean(alpha(ix)./IT(ix)),'--','LineWidth',lw);
-%title(sprintf('Optimal threshold: %.2f kHz',mean(IT(ix)./alpha(ix))*1E3));
+plot(M(ix),T(ix),'.k');
+%plot(M_range,M_range*mean(T(ix)./M(ix)),'--','LineWidth',lw);
+%title(sprintf('Optimal threshold: %.2f kHz',mean(M(ix)./T(ix))*1E3));
 c = colorbar;
 c.Label.String = 'time deviation of start (ms)';
 title('time deviation of start (ms)');
-xlim([IT_range(1),IT_range(end)]); ylim([alpha_range(1),alpha_range(end)]);
+xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 %ax = gca;
 %text(ax.XLim(2)*0.775,ax.YLim(2)*0.95,sprintf('L = %i',L),'Color','w','FontWeight','bold');
 
 nexttile; hold on;
-imagesc(IT(1,:),alpha(:,1),dt_time_stop*time_res*1E3,'AlphaData',N_P>0);
-%contour(IT,alpha,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
-set(gca,'CLim',[-2,2],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('rel. intensity threshold');
-ylabel('input false positive rate, log \alpha');
+imagesc(M(1,:),T(:,1),dt_time_stop*time_res*1E3,'AlphaData',N_P>0);
+%contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
+set(gca,'CLim',[-2,2],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
+xlabel('photons per time window, M');
+ylabel('time window (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
 %plot(M_range,1E6*M_range/20000,'--');
 dt_time_stop(N_P == 0) = Inf;
 [~,ix] = min(abs(dt_time_stop),[],1,'linear');
-plot(IT(ix),alpha(ix),'.k');
-%plot(M_range,M_range*mean(alpha(ix)./IT(ix)),'--','LineWidth',lw);
-%title(sprintf('Optimal threshold: %.2f kHz',mean(IT(ix)./alpha(ix))*1E3));
+plot(M(ix),T(ix),'.k');
+%plot(M_range,M_range*mean(T(ix)./M(ix)),'--','LineWidth',lw);
+%title(sprintf('Optimal threshold: %.2f kHz',mean(M(ix)./T(ix))*1E3));
 c = colorbar;
 c.Label.String = 'time deviation of stop (ms)';
 title('time deviation of stop (ms)');
-xlim([IT_range(1),IT_range(end)]); ylim([alpha_range(1),alpha_range(end)]);
+xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 %ax = gca;
 %text(ax.XLim(2)*0.775,ax.YLim(2)*0.95,sprintf('L = %i',L),'Color','w','FontWeight','bold');
 
 nexttile; hold on;
-imagesc(IT(1,:),alpha(:,1),dt_time*time_res*1E3,'AlphaData',N_P>0);
-%contour(IT,alpha,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
-set(gca,'CLim',[0,2+9],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('rel. intensity threshold');
-ylabel('input false positive rate, log \alpha');
+imagesc(M(1,:),T(:,1),dt_time*time_res*1E3,'AlphaData',N_P>0);
+%contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
+set(gca,'CLim',[0,2+9],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
+xlabel('photons per time window, M');
+ylabel('time window (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
 %plot(M_range,1E6*M_range/20000,'--');
 dt_time(N_P == 0) = Inf;
 [~,ix] = min(abs(dt_time),[],1,'linear');
-plot(IT(ix),alpha(ix),'.w');
-%plot(M_range,M_range*mean(alpha(ix)./IT(ix)),'--','LineWidth',lw);
-%title(sprintf('Optimal threshold: %.2f kHz',mean(IT(ix)./alpha(ix))*1E3));
+plot(M(ix),T(ix),'.w');
+%plot(M_range,M_range*mean(T(ix)./M(ix)),'--','LineWidth',lw);
+%title(sprintf('Optimal threshold: %.2f kHz',mean(M(ix)./T(ix))*1E3));
 c = colorbar;
-c.Label.String = 'RMSD time deviation (ms)';
+c.Label.String = 'absolute time deviation (ms)';
 title('RMSD time deviation (ms)');
-xlim([IT_range(1),IT_range(end)]); ylim([alpha_range(1),alpha_range(end)]);
+xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 %ax = gca;
 %text(ax.XLim(2)*0.775,ax.YLim(2)*0.95,sprintf('L = %i',L),'Color','w','FontWeight','bold');
 
 nexttile; hold on;
-imagesc(IT(1,:),alpha(:,1),FDR,'AlphaData',~isnan(FDR) & N_P>0);
-%contour(IT,alpha,FDR,'LevelList',0,'EdgeColor','y','LineWidth',lw);
+imagesc(M(1,:),T(:,1),FDR,'AlphaData',~isnan(FDR) & N_P>0);
+%contour(M,T,FDR,'LevelList',0,'EdgeColor','y','LineWidth',lw);
 set(gca,'CLim',[0,1],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
 c = colorbar;
 c.Label.String = 'false discovery rate';
-xlabel('rel. intensity threshold');
-ylabel('input false positive rate, log \alpha');
+xlabel('photons per time window, M');
+ylabel('time window (\mus)');
 title('false discovery rate');
-xlim([IT_range(1),IT_range(end)]); ylim([alpha_range(1),alpha_range(end)]);
+xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 %ax = gca;
 %text(ax.XLim(2)*0.775,ax.YLim(2)*0.95,sprintf('L = %i',L),'Color','w','FontWeight','bold');
 
 nexttile; hold on;
-imagesc(IT(1,:),alpha(:,1),N_split,'AlphaData',N_P>0);
+imagesc(M(1,:),T(:,1),N_split,'AlphaData',N_P>0);
 set(gca,'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
 c = colorbar;
 c.Label.String = 'splitting frequency';
-xlabel('rel. intensity threshold');
-ylabel('input false positive rate, log \alpha');
+xlabel('photons per time window, M');
+ylabel('time window (\mus)');
 title('splitting frequency');
-xlim([IT_range(1),IT_range(end)]); ylim([alpha_range(1),alpha_range(end)]);
+xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 %ax = gca;
 %text(ax.XLim(2)*0.775,ax.YLim(2)*0.95,sprintf('L = %i',L),'Color','w','FontWeight','bold');
 
-print(gcf,[foldername filesep files(1).name(1:end-6) '_CUSUM.png'],'-dpng','-painters','-r300');
-print(gcf,[foldername filesep files(1).name(1:end-6) '_CUSUM.eps'],'-depsc','-painters');
-print(gcf,[foldername filesep files(1).name(1:end-6) '_CUSUM.pdf'],'-dpdf','-painters');
-saveas(gcf,[foldername filesep files(1).name(1:end-6) '_CUSUM.fig']);
+print(gcf,[foldername filesep files(1).name(1:end-6) '_STW.png'],'-dpng','-painters','-r300');
+print(gcf,[foldername filesep files(1).name(1:end-6) '_STW.eps'],'-depsc','-painters');
+print(gcf,[foldername filesep files(1).name(1:end-6) '_STW.pdf'],'-dpdf','-painters');
+saveas(gcf,[foldername filesep files(1).name(1:end-6) '_STW.fig']);
 delete(gcf);
