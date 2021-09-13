@@ -4,8 +4,8 @@ if nargin < 2
     L = 5;
 end
 time_res = 12.5E-9;% scan over threshold and false positive percentage
-M_range = 2:1:25;
-T_range = 100:100:2000;
+M_range = 2:2:50;
+T_range = 50:50:1000;
 [M,T] = meshgrid(M_range,T_range);
 T_time_res = T*1e-6/time_res;
 
@@ -54,10 +54,7 @@ for f = 1:numel(files)
     N_split = zeros(size(M));
     for i = 1:size(M,1)
         for j = 1:size(M,2)
-            [start,stop] = SlidingTimeWindow_BurstSearch(MT,M(i,j),T_time_res(i,j),true);
-            %[start,stop] = SlidingTimeWindow_BurstSearch(MT{1,1},5,1000,true);
-            %[start,stop] = InterphotonTime_BurstSearch(MT{1,1},1,260);
-            %[start,stop] = ChangePoint_BurstSearch(MT{1,1},10);
+            [start,stop] = InterphotonTime_BurstSearch(MT,M(i,j),T_time_res(i,j));
             
             % number of photons per burst
             N_photons = stop-start+1;
@@ -191,10 +188,10 @@ TPR = N_TP_total./P_total;
 % false discovery rate
 FDR = N_FP_total./(N_FP_total+N_TP_total);
 
-save([foldername filesep files(1).name(1:end-6) '_STW_result.mat'],...
+save([foldername filesep files(1).name(1:end-6) '_IPT_result.mat'],...
     'dt','dt_start','dt_stop','dt_start_array','dt_stop_array',...
     'dt_time','dt_time_start','dt_time_stop','dt_time_start_array','dt_time_stop_array',...
-    'N_split','N_P','P','TPR','FDR','M','T','time_res','L');
+    'N_split','N_P','P','TPR','FDR','M','T','time_res','L','-v7.3');
 %% plot and save figure
 lw = 1;
 fs = 8;
@@ -207,8 +204,8 @@ nexttile; hold on; colormap('vik');
 imagesc(M(1,:),T(:,1),dt_start,'AlphaData',N_P>0);
 %contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
 set(gca,'CLim',[-5,5],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('photons per time window, M');
-ylabel('time window (\mus)');
+xlabel('smoothing window, M');
+ylabel('interphoton time (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
@@ -229,8 +226,8 @@ nexttile; hold on;
 imagesc(M(1,:),T(:,1),dt_stop,'AlphaData',N_P>0);
 %contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
 set(gca,'CLim',[-5,5],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('photons per time window, M');
-ylabel('time window (\mus)');
+xlabel('smoothing window, M');
+ylabel('interphoton time (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
@@ -249,8 +246,8 @@ nexttile; hold on;
 imagesc(M(1,:),T(:,1),dt,'AlphaData',N_P>0);
 %contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
 set(gca,'CLim',[0,5],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('photons per time window, M');
-ylabel('time window (\mus)');
+xlabel('smoothing window, M');
+ylabel('interphoton time (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
@@ -271,8 +268,8 @@ imagesc(M(1,:),T(:,1),TPR,'AlphaData',~isnan(TPR) & N_P>0);
 set(gca,'CLim',[0,1],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
 c = colorbar;
 c.Label.String = 'true positive rate';
-xlabel('photons per time window, M');
-ylabel('time window (\mus)');
+xlabel('smoothing window, M');
+ylabel('interphoton time (\mus)');
 title('true positive rate');
 %ax = gca;
 %text(ax.XLim(2)*0.775,ax.YLim(2)*0.95,sprintf('L = %i',L),'Color','w','FontWeight','bold');
@@ -284,8 +281,8 @@ contour(M,T,N_P,'LevelList',P,'EdgeColor','y','LineWidth',lw);
 set(gca,'CLim',[0,ceil(2.5*P/500)*500],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
 c = colorbar;
 c.Label.String = 'number of bursts';
-xlabel('photons per time window, M');
-ylabel('time window (\mus)');
+xlabel('smoothing window, M');
+ylabel('interphoton time (\mus)');
 title('number of detected bursts');
 xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 ax = gca;
@@ -295,8 +292,8 @@ nexttile; hold on;
 imagesc(M(1,:),T(:,1),dt_time_start*time_res*1E3,'AlphaData',N_P>0);
 %contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
 set(gca,'CLim',[-2,2],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('photons per time window, M');
-ylabel('time window (\mus)');
+xlabel('smoothing window, M');
+ylabel('interphoton time (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
@@ -317,8 +314,8 @@ nexttile; hold on;
 imagesc(M(1,:),T(:,1),dt_time_stop*time_res*1E3,'AlphaData',N_P>0);
 %contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
 set(gca,'CLim',[-2,2],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('photons per time window, M');
-ylabel('time window (\mus)');
+xlabel('smoothing window, M');
+ylabel('interphoton time (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
@@ -339,8 +336,8 @@ nexttile; hold on;
 imagesc(M(1,:),T(:,1),dt_time*time_res*1E3,'AlphaData',N_P>0);
 %contour(M,T,N_P,'LevelList',1000,'EdgeColor','y','LineWidth',lw);
 set(gca,'CLim',[0,2+9],'YLim',[0,T(end,1)],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
-xlabel('photons per time window, M');
-ylabel('time window (\mus)');
+xlabel('smoothing window, M');
+ylabel('interphoton time (\mus)');
 % plot guidelines at constant threshold
 %plot(M_range,1E6*M_range/5000,'--');
 %plot(M_range,1E6*M_range/10000,'--');
@@ -363,8 +360,8 @@ imagesc(M(1,:),T(:,1),FDR,'AlphaData',~isnan(FDR) & N_P>0);
 set(gca,'CLim',[0,1],'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
 c = colorbar;
 c.Label.String = 'false discovery rate';
-xlabel('photons per time window, M');
-ylabel('time window (\mus)');
+xlabel('smoothing window, M');
+ylabel('interphoton time (\mus)');
 title('false discovery rate');
 xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 %ax = gca;
@@ -375,15 +372,15 @@ imagesc(M(1,:),T(:,1),N_split,'AlphaData',N_P>0);
 set(gca,'Box','on','LineWidth',lw,'FontSize',fs,'Layer','top');
 c = colorbar;
 c.Label.String = 'splitting frequency';
-xlabel('photons per time window, M');
-ylabel('time window (\mus)');
+xlabel('smoothing window, M');
+ylabel('interphoton time (\mus)');
 title('splitting frequency');
 xlim([M_range(1),M_range(end)]); ylim([T_range(1),T_range(end)]);
 %ax = gca;
 %text(ax.XLim(2)*0.775,ax.YLim(2)*0.95,sprintf('L = %i',L),'Color','w','FontWeight','bold');
 
-print(gcf,[foldername filesep files(1).name(1:end-6) '_STW.png'],'-dpng','-painters','-r300');
-print(gcf,[foldername filesep files(1).name(1:end-6) '_STW.eps'],'-depsc','-painters');
-print(gcf,[foldername filesep files(1).name(1:end-6) '_STW.pdf'],'-dpdf','-painters');
-saveas(gcf,[foldername filesep files(1).name(1:end-6) '_STW.fig']);
+print(gcf,[foldername filesep files(1).name(1:end-6) '_IPT.png'],'-dpng','-painters','-r300');
+print(gcf,[foldername filesep files(1).name(1:end-6) '_IPT.eps'],'-depsc','-painters');
+print(gcf,[foldername filesep files(1).name(1:end-6) '_IPT.pdf'],'-dpdf','-painters');
+saveas(gcf,[foldername filesep files(1).name(1:end-6) '_IPT.fig']);
 delete(gcf);
