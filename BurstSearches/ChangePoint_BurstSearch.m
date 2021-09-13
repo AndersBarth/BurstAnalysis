@@ -1,6 +1,9 @@
-function [start,stop] = ChangePoint_BurstSearch(Photons,threshold,include_sigma)
+function [start,stop] = ChangePoint_BurstSearch(Photons,threshold,alpha,include_sigma)
 global FileInfo
 if nargin < 3
+    alpha = 0.01; % Type-I error rate alpha
+end
+if nargin < 4
     include_sigma = false; % extend the burst range to include the confidence interval
 end
 %%% Wrapper function to run the changepoint detection algorithm
@@ -10,7 +13,7 @@ end
 %%% Threshold is given in kHz
 SyncPeriod = FileInfo.SyncPeriod;
 Nstates = 5; % the number of intensity levels
-alpha = 0.01; % Type-I error rate alpha
+%alpha = 0.01; % Type-I error rate alpha
 ci = 0.69; % selection confidence interval of 69%
 
 temp_dir = './temp';
